@@ -3,6 +3,7 @@
 #include "Hook.hpp"
 #include "ISystem.hpp"
 #include "PluginBase.hpp"
+#include "WineMutex.hpp"
 
 class HookingSystem : public ISystem
 {
@@ -35,6 +36,6 @@ private:
 
     bool QueueForDetach(std::shared_ptr<PluginBase> aPlugin, Item& aItem);
 
-    std::mutex m_mutex;
+    RED4extInternal::wine_compat_mutex m_mutex;
     Map_t m_hooks;
 };

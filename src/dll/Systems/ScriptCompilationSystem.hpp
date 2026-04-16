@@ -5,6 +5,7 @@
 #include "Paths.hpp"
 #include "PluginBase.hpp"
 #include "SourceRefRepository.hpp"
+#include "WineMutex.hpp"
 
 struct FixedWString
 {
@@ -52,7 +53,7 @@ private:
 
     const Paths& m_paths;
 
-    std::mutex m_mutex;
+    RED4extInternal::wine_compat_mutex m_mutex;
     Map_t m_scriptPaths;
     bool m_hasScriptsBlob;
     std::filesystem::path m_scriptsBlobPath;

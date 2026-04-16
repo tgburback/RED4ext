@@ -5,6 +5,7 @@
 #include "ISystem.hpp"
 #include "PluginBase.hpp"
 #include "Utils.hpp"
+#include "WineMutex.hpp"
 
 class LoggerSystem : public ISystem
 {
@@ -79,6 +80,6 @@ private:
     const Config& m_config;
     const DevConsole& m_devConsole;
 
-    std::mutex m_loggersMutex;
+    RED4extInternal::wine_compat_mutex m_loggersMutex;
     std::unordered_map<std::shared_ptr<PluginBase>, std::shared_ptr<spdlog::logger>> m_loggers;
 };
