@@ -7,7 +7,6 @@
 #include <ctime>
 #include <cwctype>
 
-#include <spdlog/sinks/null_sink.h>
 #include <spdlog/sinks/rotating_file_sink.h>
 #include <spdlog/sinks/stdout_color_sinks.h>
 
@@ -60,25 +59,7 @@ std::shared_ptr<spdlog::logger> Utils::CreateLogger(const std::wstring_view aLog
         size_t maxFileSize = static_cast<size_t>(loggingConfig.maxFileSize) * oneMbInB;
 
         auto file = dir / aFilename;
-
-        // Wine/Proton workaround: under Wine, the first spdlog registry mutex
-        // interaction inside DllMain can raise EXCEPTION_ACCESS_VIOLATION from
-        // MSVCP140's _Mtx_unlock (Wine's CRITICAL_SECTION internals don't match
-        // what MSVC's STL assumes about mutex layout). This file is compiled
-        // with /EHa so that `catch (...)` catches SEH exceptions as well as
-        // C++ exceptions. If the rotating file sink fails, fall back to a
-        // silent null-sink logger so RED4ext's plugin loading can still proceed.
-        std::shared_ptr<spdlog::logger> logger;
-        try
-        {
-            logger = spdlog::rotating_logger_mt(Narrow(aLogName), file, maxFileSize, maxFiles, true);
-        }
-        catch (...)
-        {
-            auto nullSink = std::make_shared<spdlog::sinks::null_sink_mt>();
-            logger = std::make_shared<spdlog::logger>(Narrow(aLogName), nullSink);
-        }
-
+        auto logger = spdlog::rotating_logger_mt(Narrow(aLogName), file, maxFileSize, maxFiles, true);
         logger->set_level(loggingConfig.level);
         logger->flush_on(loggingConfig.flushOn);
 
