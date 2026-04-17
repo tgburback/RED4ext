@@ -7,6 +7,7 @@
 #include <ctime>
 #include <cwctype>
 
+#include <spdlog/sinks/null_sink.h>
 #include <spdlog/sinks/rotating_file_sink.h>
 #include <spdlog/sinks/stdout_color_sinks.h>
 
@@ -59,7 +60,25 @@ std::shared_ptr<spdlog::logger> Utils::CreateLogger(const std::wstring_view aLog
         size_t maxFileSize = static_cast<size_t>(loggingConfig.maxFileSize) * oneMbInB;
 
         auto file = dir / aFilename;
-        auto logger = spdlog::rotating_logger_mt(Narrow(aLogName), file, maxFileSize, maxFiles, true);
+
+        // Wine/Proton safety net. The spdlog registry and RED4ext System
+        // mutexes are swapped to SRWLOCK wrappers to fix the MSVCP140
+        // _Mtx_unlock crash during DllMain on Wine, but residual SEH faults
+        // have been observed deeper in the sink/filesystem path. Compile
+        // this TU with /EHa so catch(...) catches SEH as well as C++
+        // exceptions; fall back to a null-sink logger if the real sink
+        // construction raises, so the rest of RED4ext init can proceed.
+        std::shared_ptr<spdlog::logger> logger;
+        try
+        {
+            logger = spdlog::rotating_logger_mt(Narrow(aLogName), file, maxFileSize, maxFiles, true);
+        }
+        catch (...)
+        {
+            auto nullSink = std::make_shared<spdlog::sinks::null_sink_mt>();
+            logger = std::make_shared<spdlog::logger>(Narrow(aLogName), nullSink);
+        }
+
         logger->set_level(loggingConfig.level);
         logger->flush_on(loggingConfig.flushOn);
 

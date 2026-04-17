@@ -14,6 +14,14 @@ source_group(TREE "${CMAKE_CURRENT_SOURCE_DIR}" FILES ${HEADER_FILES} ${SOURCE_F
 target_include_directories(RED4ext.Dll PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 target_sources(RED4ext.Dll PRIVATE ${HEADER_FILES} ${SOURCE_FILES} ${RC_FILES})
 
+# Compile Utils.cpp with /EHa so a catch(...) in Utils::CreateLogger can
+# absorb residual SEH exceptions on Wine/Proton. See the comment in the
+# source for details. /wd4652 silences the PCH-vs-EH-option-inconsistency
+# warning (the PCH is built with /EHsc; the difference is intentional).
+if (MSVC)
+  set_source_files_properties(Utils.cpp PROPERTIES COMPILE_OPTIONS "/EHa;/wd4652")
+endif ()
+
 target_precompile_headers(RED4ext.Dll PUBLIC stdafx.hpp)
 target_link_libraries(RED4ext.Dll
   PUBLIC
