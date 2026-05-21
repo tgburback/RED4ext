@@ -89,6 +89,32 @@ Even with the mutex substitutions, occasional `EXCEPTION_ACCESS_VIOLATION` was o
 
 This is defensive, not load-bearing — it exists so that a failure deeper in logging cannot prevent the rest of RED4ext from coming up. The rest of the codebase still uses standard C++ exception semantics.
 
+
+---
+
+## Why this class of bug keeps recurring
+
+Wine matches the publicly-documented `CRITICAL_SECTION` layout in `winnt.h`, which is all the public contract requires. Microsoft's STL implementation in MSVCP140 reads *past* the documented layout into undocumented internal fields, which Microsoft is free to shift between Visual Studio releases without notice. The result is an asymmetric maintenance burden: Microsoft pays nothing when internals shift (they control both ends of the layout assumption), while Wine has to reactively reverse-engineer each new MSVCP build to match offsets that aren't part of the public ABI.
+
+This is why "the Wine crash with std::mutex" has resurfaced multiple times over the years rather than being permanently fixed. It is structurally a treadmill, not a single defect. The underlying fault line will re-emerge in any other Windows DLL that uses `std::mutex` and gets loaded into a Wine process, until either:
+
+- Microsoft routes `_Mtx_lock`/`_Mtx_unlock` through the documented `EnterCriticalSection`/`LeaveCriticalSection` API (unlikely; would regress performance on the path Microsoft cares about most),
+- Wine extends `RTL_CRITICAL_SECTION`'s internal layout to byte-match Microsoft's per-MSVCP-version and commits to chasing future shifts (essentially the current state of affairs, with the predictable lag),
+- or downstream consumers like this fork switch to `SRWLOCK`-backed primitives that have no undocumented layout to mismatch.
+
+This fork takes the third path, which is the only one a downstream consumer can take unilaterally.
+
+## Limitations of this writeup
+
+The mechanism described above is inferred from symptoms and confirmed by fix-effectiveness, not from direct disassembly of `MSVCP140._Mtx_unlock` or a byte-level comparison of Microsoft's vs. Wine's `CRITICAL_SECTION` layout in memory. Specifically, this fork does not include:
+
+- A disassembly of `_Mtx_unlock` identifying the exact offset that is misread.
+- A side-by-side comparison of an initialized `std::mutex` on native Windows vs. under Wine.
+- A reference to the specific Wine source file and line where the divergent layout originates.
+
+The fix works; the diagnosis is consistent with all observed evidence; but the root cause is not yet *proven* in the rigorous sense. A future writeup may close that gap.
+
+
 ## What this is not
 
 - **Not a Linux build.** The output is still a Windows DLL built with MSVC; it is loaded into a Windows process inside Wine. No Wine-specific code paths exist outside the conditional `_WIN32` block in `WineMutex.hpp`.
